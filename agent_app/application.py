@@ -29,53 +29,64 @@ container
 @app.route('/')
 def home():
     return 'welcome!',200
+
 @app.route('/read/<user_id>', methods=['GET'])
 def read_user(user_id):
     try:
         item = container.read_item(user_id,user_id)
     except:
-        return 'てやんでい！そんなユーザーは存在しねぇぜ！一昨日きやがれ！',404
+        return '',404
     return item
+
 @app.route('/rank')
 def ranking():
     query = "SELECT i.id,i.name,i.count FROM items i ORDER BY i.count DESC"
     items = container.query_items(query, enable_cross_partition_query=True)
-    return jsonify(list(items))
+    return jsonify(list(items)),200
+
 @app.route("/mypage/<user_id>")
-def yourPage(user_id):
+def userPage(user_id):
     try:
         item = container.read_item(user_id,user_id)
     except:
-        return '', 404
-    pages = {"name":item['name'],"start":item['start'],"count":item['count'],"monster":item['monster']}
+        return '',404
+    pages = {
+        "name":item['name'],
+        "start":item['start'],
+        "count":item['count'],
+        "energyDrinks":item['energyDrinks']
+        }
     return jsonify(pages)
+
 @app.route("/imagepost", methods=["POST"])
 def result():
     user_id = request.form["user_id"]
-    agent = request.form["agent"]
+    energyDrink = request.form["energyDrink"]
     try:
         read_item = container.read_item(user_id,user_id)
     except:
-        return '', 404
+        return '',404
     read_item['count'] += 1
-    read_item['monster'] += [agent]
-    response = container.replace_item(item=read_item, body=read_item)
-    return '', 204
+    read_item['energyDrinks'] += [energyDrink]
+    container.replace_item(item=read_item,body=read_item)
+    return '',200
+
 @app.route("/login",methods=["POST"])
 def logIn():
     user_id = request.form["user_id"]
     user_name = request.form["user_name"]
-    today =  datetime.date.today()
-    today = today.strftime('%Y/%m/%d')
+    today = datetime.date.today()
+    formatedToday = today.strftime('%Y/%m/%d')
     try:
         container.read_item(user_id,user_id)
     except:
         user = {
             'id':user_id,
             'name':user_name,
-            'start':today,
+            'begin':formatedToday,
             'count':0,
-            'monster':[]
+            'enargyDrinks':[]
         }
         container.create_item(body=user)
-    return '', 204
+        return '',201
+    return '',200
