@@ -2,12 +2,14 @@ from azure.cosmos import exceptions, CosmosClient, PartitionKey
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import datetime
+import json
 from . import app
 
 CORS(app)
 # Initialize the Cosmos client
-endpoint = ""
-key = ''
+json_key = open('key.json', 'r')
+endpoint = json.load(json_key)['endpoint']
+key = json.load(json_key)['key']
 
 # <create_cosmos_client>
 client = CosmosClient(endpoint, key)
@@ -17,15 +19,13 @@ client = CosmosClient(endpoint, key)
 # <create_database_if_not_exists>
 database = client.get_database_client('MagicalDiary')
 # </create_database_if_not_exists>
-database
+
 # Create a container
 # Using a good partition key improves the performance of database operations.
 # <create_container_if_not_exists>
-container_name = 'User'
-container = database.get_container_client(container_name)
-container
-
+container = database.get_container_client('User')
 # </create_container_if_not_exists>
+
 @app.route('/')
 def home():
     return 'welcome!',200
@@ -34,25 +34,25 @@ def home():
 def read_user(user_id):
     try:
         item = container.read_item(user_id,user_id)
-    except:
+    except Exception:
         return '',404
     return item
 
-@app.route('/rank')
+@app.route('/rank', methods=['GET'])
 def ranking():
     query = "SELECT i.id,i.name,i.count FROM items i ORDER BY i.count DESC"
     items = container.query_items(query, enable_cross_partition_query=True)
     return jsonify(list(items)),200
 
-@app.route("/mypage/<user_id>")
+@app.route("/mypage/<user_id>", methods=['GET'])
 def userPage(user_id):
     try:
         item = container.read_item(user_id,user_id)
-    except:
-        return '',404
+    except Exception:
+        return 'NotFound',404
     pages = {
         "name":item['name'],
-        "start":item['start'],
+        "begin":item['begin'],
         "count":item['count'],
         "energyDrinks":item['energyDrinks']
         }
@@ -64,7 +64,7 @@ def result():
     energyDrink = request.form["energyDrink"]
     try:
         read_item = container.read_item(user_id,user_id)
-    except:
+    except Exception:
         return '',404
     read_item['count'] += 1
     read_item['energyDrinks'] += [energyDrink]
@@ -79,7 +79,7 @@ def logIn():
     formatedToday = today.strftime('%Y/%m/%d')
     try:
         container.read_item(user_id,user_id)
-    except:
+    except Exception:
         user = {
             'id':user_id,
             'name':user_name,
